@@ -132,12 +132,17 @@ export default function ViewerPage() {
         };
         setFilenames(fileNamesObj);
 
-        // Set the mesh URLs directly to the GCP signed URLs from the API response
+        // Map GCP signed URLs to the local Next.js proxy route to bypass GCS CORS rules in deployment
+        const proxyUrl = (url: string | null) => {
+          if (!url) return null;
+          return `/api/proxy?url=${encodeURIComponent(url)}`;
+        };
+
         setMeshUrls({
-          inputMaxilla: data.maxilla.input,
-          inputMandible: data.mandible.input,
-          outputMaxilla: data.maxilla.output,
-          outputMandible: data.mandible.output,
+          inputMaxilla: proxyUrl(data.maxilla.input),
+          inputMandible: proxyUrl(data.mandible.input),
+          outputMaxilla: proxyUrl(data.maxilla.output),
+          outputMandible: proxyUrl(data.mandible.output),
         });
 
       } catch (err: any) {
