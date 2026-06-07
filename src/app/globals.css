@@ -781,9 +781,9 @@ body {
   border-radius: 50%;
 }
 
-.mesh-dot-input-u { background-color: #5b9cf5; } /* Input Maxilla - Premium Blue */
+.mesh-dot-input-u { background-color: #3b82f6; } /* Input Maxilla - Premium Blue */
 .mesh-dot-input-l { background-color: #8b7df5; } /* Input Mandible - Premium Indigo */
-.mesh-dot-output-u { background-color: #f0ece4; } /* Output Maxilla - Premium Ivory Plaster */
+.mesh-dot-output-u { background-color: #06b6d4; } /* Output Maxilla - Premium Clinical Cyan Plaster */
 .mesh-dot-output-l { background-color: #0d9488; } /* Output Mandible - Premium Teal Resin */
 
 .mesh-name {

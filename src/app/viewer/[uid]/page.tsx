@@ -19,6 +19,8 @@ import {
   Check
 } from 'lucide-react';
 
+import JSZip from 'jszip';
+
 const ThreeViewer = dynamic(() => import('@/components/ThreeViewer'), { ssr: false });
 
 interface ModelData {
@@ -130,12 +132,12 @@ export default function ViewerPage() {
         };
         setFilenames(fileNamesObj);
 
-        // Construct local download URLs to bypass GCS CORS rules
+        // Set the mesh URLs directly to the GCP signed URLs from the API response
         setMeshUrls({
-          inputMaxilla: `${API_URL}/download/${uid}/${fileNamesObj.inputMaxilla}`,
-          inputMandible: `${API_URL}/download/${uid}/${fileNamesObj.inputMandible}`,
-          outputMaxilla: `${API_URL}/download/${uid}/${fileNamesObj.outputMaxilla}`,
-          outputMandible: `${API_URL}/download/${uid}/${fileNamesObj.outputMandible}`,
+          inputMaxilla: data.maxilla.input,
+          inputMandible: data.mandible.input,
+          outputMaxilla: data.maxilla.output,
+          outputMandible: data.mandible.output,
         });
 
       } catch (err: any) {
@@ -175,9 +177,62 @@ export default function ViewerPage() {
     }));
   };
 
-  // ZIP download trigger
-  const handleDownloadZip = () => {
-    window.location.href = `${API_URL}/download-zip/${uid}`;
+  // Client-side ZIP download compiler
+  const handleDownloadZip = async () => {
+    try {
+      const zip = new JSZip();
+      const downloadPromises: Promise<void>[] = [];
+
+      const meshesToDownload = [
+        { key: 'inputMaxilla', url: meshUrls.inputMaxilla, defaultName: 'mesh2.stl' },
+        { key: 'inputMandible', url: meshUrls.inputMandible, defaultName: 'mesh1.stl' },
+        { key: 'outputMaxilla', url: meshUrls.outputMaxilla, defaultName: 'mesh2_model_U.stl' },
+        { key: 'outputMandible', url: meshUrls.outputMandible, defaultName: 'mesh1_model_L.stl' },
+      ];
+
+      for (const mesh of meshesToDownload) {
+        if (mesh.url) {
+          const filename = filenames[mesh.key as keyof typeof filenames] || mesh.defaultName;
+          
+          const promise = fetch(mesh.url)
+            .then((res) => {
+              if (!res.ok) throw new Error(`Failed to fetch ${filename}`);
+              return res.arrayBuffer();
+            })
+            .then((buffer) => {
+              zip.file(filename, buffer);
+            })
+            .catch((err) => {
+              console.error(`Error downloading mesh file ${filename}:`, err);
+            });
+          downloadPromises.push(promise);
+        }
+      }
+
+      if (downloadPromises.length === 0) {
+        alert("No models are currently loaded to download.");
+        return;
+      }
+
+      // Wait for all meshes to be downloaded and added to JSZip
+      await Promise.all(downloadPromises);
+
+      // Generate zip file as a blob
+      const content = await zip.generateAsync({ type: 'blob' });
+
+      // Create download link and trigger it
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(content);
+      link.download = `dental_models_${uid}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+
+    } catch (error) {
+      console.error("Failed to generate zip archive:", error);
+      alert("Failed to prepare dental models for download.");
+    }
   };
 
   return (
@@ -317,7 +372,7 @@ export default function ViewerPage() {
               className="download-btn w-full"
               disabled={loading || !!error}
             >
-              <Download size={16} /> Download ZIP Models
+              <Download size={16} /> Download Models
             </button>
           </div>
 
@@ -352,8 +407,8 @@ export default function ViewerPage() {
                 <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-0.5">3D Model Legend</div>
                 {visibility.outputMaxilla && (
                   <div className="flex items-center gap-1.5 text-slate-200">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#f0ece4] border border-white/10" />
-                    <span>Maxilla Output (Ivory Plaster)</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#06b6d4] border border-white/10" />
+                    <span>Maxilla Output (Clinical Cyan)</span>
                   </div>
                 )}
                 {visibility.outputMandible && (
@@ -364,14 +419,14 @@ export default function ViewerPage() {
                 )}
                 {visibility.inputMaxilla && (
                   <div className="flex items-center gap-1.5 text-slate-200">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#5b9cf5] border border-white/10" />
-                    <span>Maxilla Input (Translucent Blue)</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#3b82f6] border border-white/10" />
+                    <span>Maxilla Input (Solid Blue)</span>
                   </div>
                 )}
                 {visibility.inputMandible && (
                   <div className="flex items-center gap-1.5 text-slate-200">
                     <span className="w-2.5 h-2.5 rounded-full bg-[#8b7df5] border border-white/10" />
-                    <span>Mandible Input (Translucent Indigo)</span>
+                    <span>Mandible Input (Solid Indigo)</span>
                   </div>
                 )}
               </div>
